@@ -1,0 +1,149 @@
+from google.colab import drive
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Montar Google Drive
+drive.mount('/content/drive')
+
+# Ruta del archivo XLSX
+file_path = '/content/drive/My Drive/U/Adultos1.xlsx'
+
+# Cargar el archivo Excel
+df = pd.read_excel(file_path, engine='openpyxl')
+
+# Renombrar columnas numéricas con sus descripciones correspondientes
+df.rename(columns={
+    2: 'Importancia_medio_ambiente',  # ¿Qué tan importante es para usted el medio ambiente?
+    4: 'Actividad_practicada',        # ¿Cuál de las siguientes actividades practica?
+    5: 'Fin_actividad',               # ¿Con qué fin realiza esta actividad?
+    6: 'Enseña_conservacion',         # ¿Le enseña a sus hijos a conservar el medio ambiente?
+    10: 'Fuente_contaminacion'        # ¿Cuál es la principal fuente de contaminación en su municipio?
+}, inplace=True)
+
+# Mapear valores de las columnas renombradas
+map_importancia = {1: 'Muy baja', 2: 'Baja', 3: 'Media', 4: 'Alta', 5: 'Muy alta'}
+map_actividad = {
+    1: 'Tala de árboles', 2: 'Cacería', 3: 'Pesca', 4: 'Ganadería',
+    5: 'Agricultura', 6: 'Ninguna', 7: 'Otras'
+}
+map_fin = {
+    1: 'Comercial', 2: 'Consumo', 3: 'Hogar',
+    4: 'Recreativo', 5: 'No aplica'
+}
+map_conservacion = {1: 'Sí', 2: 'No', 3: 'No tiene hijos'}
+map_contaminacion = {
+    1: 'Agricultura', 2: 'Ganadería', 3: 'Fábricas e Industria',
+    4: 'Minería', 5: 'Desechos', 6: 'Otros'
+}
+
+df['Importancia_medio_ambiente'] = df['Importancia_medio_ambiente'].map(map_importancia)
+df['Actividad_practicada'] = df['Actividad_practicada'].map(map_actividad)
+df['Fin_actividad'] = df['Fin_actividad'].map(map_fin)
+df['Enseña_conservacion'] = df['Enseña_conservacion'].map(map_conservacion)
+df['Fuente_contaminacion'] = df['Fuente_contaminacion'].map(map_contaminacion)
+
+# ---------------------------------------------
+# Función para agregar porcentajes a los gráficos de barras
+def add_percentage(ax):
+    for p in ax.patches:
+        percentage = f'{100 * p.get_height() / len(df):.1f}%'
+        ax.annotate(percentage, (p.get_x() + p.get_width() / 2., p.get_height()), 
+                    ha='center', va='bottom', fontsize=10, color='black')
+
+# ---------------------------------------------
+# Gráficos y guardado de imágenes
+# ---------------------------------------------
+
+# Gráfico 1: Ocupaciones en forma de torta
+plt.figure(figsize=(8, 8))
+df['Dedicacion'].value_counts().plot(kind='pie', autopct='%1.1f%%', startangle=90, cmap='viridis')
+plt.title('Distribución de ocupaciones')
+plt.ylabel('')
+plt.savefig('/content/Distribucion_ocupaciones.png')
+plt.show()
+
+# Gráficos individuales para cada columna renombrada
+columnas_graficar = {
+    'Importancia_medio_ambiente': '¿Qué tan importante es para usted el medio ambiente?',
+    'Actividad_practicada': '¿Cuál de las siguientes actividades practica?',
+    'Fin_actividad': '¿Con qué fin realiza esta actividad?',
+    'Enseña_conservacion': '¿Le enseña a sus hijos a conservar el medio ambiente?',
+    'Fuente_contaminacion': '¿Cuál es la principal fuente de contaminación en su municipio?'
+}
+
+for col, titulo in columnas_graficar.items():
+    if col in df.columns:
+        plt.figure(figsize=(8, 6))
+        ax = sns.countplot(data=df, x=col, order=df[col].value_counts().index, palette='viridis')
+        add_percentage(ax)
+        plt.title(titulo)
+        plt.xticks(rotation=45)
+        plt.savefig(f'/content/{col}.png')
+        plt.show()
+
+# Histograma para las edades
+plt.figure(figsize=(8, 6))
+sns.histplot(data=df, x='Edad', kde=True, color='skyblue', bins=10)
+plt.title('Distribución de edades')
+plt.xlabel('Edad')
+plt.ylabel('Frecuencia')
+plt.savefig('/content/Distribucion_edades.png')
+plt.show()
+
+
+import matplotlib.cm as cm
+
+# Limpiar nombres de columnas
+df.columns = df.columns.str.strip().str.replace(' ', '_').str.replace('(', '').str.replace(')', '')
+
+# Verificar los nombres de las columnas después de la limpieza
+print("Nombres de columnas después de la limpieza:")
+print(df.columns.tolist())
+
+import matplotlib.cm as cm
+from matplotlib.colors import to_rgba
+
+# Gráfico apilado para enseñanza sobre conservación y tipo de vivienda
+if 'Enseña_conservacion' in df.columns and 'Sitio_de_vivienda' in df.columns:
+    print("Generando gráfico apilado para 'Enseña_conservacion' y 'Sitio_de_vivienda'...")
+    
+    # Crear una tabla cruzada normalizada
+    tabla = pd.crosstab(df['Enseña_conservacion'], df['Sitio_de_vivienda'], normalize='columns') * 100
+    
+    # Gráfico de barras apiladas
+    ax = tabla.plot(kind='bar', stacked=True, figsize=(8, 6), cmap='coolwarm', edgecolor='black')
+    
+    # Agregar porcentajes a las barras
+    for p in ax.patches:
+        porcentaje = f'{p.get_height():.1f}%'
+        posicion_x = p.get_x() + p.get_width() / 2
+        posicion_y = p.get_height() + p.get_y() - 5 if p.get_height() > 5 else p.get_y() + 2
+        ax.annotate(porcentaje, (posicion_x, posicion_y),
+                    ha='center', va='center', fontsize=10, color='black')
+    
+    # Ajustar título, etiquetas y leyenda
+    plt.title('Enseñanza sobre conservación por tipo de vivienda', fontsize=14)
+    plt.ylabel('Porcentaje', fontsize=12)
+    plt.xlabel('¿Le enseña a sus hijos a conservar el medio ambiente?', fontsize=12)
+    plt.legend(title='Sitio de vivienda', loc='upper center', bbox_to_anchor=(0.8, -0.1), ncol=2)
+    plt.tight_layout()  # Ajustar espaciado automáticamente
+    plt.savefig('/content/Ensenanza_vs_vivienda_apilado.png')
+    plt.show()
+else:
+    print("No se encontraron las columnas necesarias para el gráfico apilado.")
+
+
+# Gráfico de torta para distribución de vivienda
+if 'Sitio_de_vivienda' in df.columns:
+    print("Generando gráfico de torta para 'Sitio_de_vivienda'...")
+    plt.figure(figsize=(8, 8))
+    colores = cm.tab10.colors  # Paleta de colores más vibrantes
+    df['Sitio_de_vivienda'].value_counts().plot(
+        kind='pie', autopct='%1.1f%%', startangle=90, colors=colores, textprops={'fontsize': 12, 'color': 'black'})
+    plt.title('Porcentaje de personas según el tipo de vivienda')
+    plt.ylabel('')  # Oculta el eje Y
+    plt.savefig('/content/Distribucion_vivienda.png')
+    plt.show()
+else:
+    print("No se encontró la columna 'Sitio_de_vivienda'.")
